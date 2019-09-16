@@ -1,9 +1,8 @@
-#include "opencv2/opencv.hpp"
+// #include "opencv2/opencv.hpp"
 #include "opencv2/core/core.hpp"
 #include "opencv2/core/core_c.h"
-#include "opencv2/imgproc.hpp"
-#include "opencv2/highgui.hpp"
-#include "opencv2/highgui/highgui_c.h"
+#include "opencv2/core/imgproc.hpp"
+#include "opencv2/core/highgui.hpp"
 
 #include <iostream>
 #include <iomanip>
@@ -109,63 +108,64 @@ void print_mat_rows(cv::Mat mat, int numrows, int prec) {
 	}
 }
 
-float* polyfit(std::vector<Point> poly_points, int poly_order) {
+float* polyfit(cv::vector<Point> poly_points, int poly_order) {
 
 	int i, j, k;
 	int num_points = poly_points.size();
-
-        // a stores the values of the final coefficients
 	float* a = new float[poly_order + 1];
-
-	// B is the Normal matrix(augmented) that will store the equations
+	// B is the Normal matrix(augmented) that will store the equations, 'a' is for value of the final coefficients
 	float** B = new float*[poly_order + 1];
 	for (i = 0; i < poly_order + 1; i++) {
 		B[i] = new float[poly_order + 2];
 	}
-
-	// Array for sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
+	// Array that will store the values of sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
 	float* X = new float[2 * poly_order + 1];
-
-	// Array for sigma(yi),sigma(xi*yi),sigma(xi^2*yi)...sigma(xi^n*yi)
+	//Array to store the values of sigma(yi),sigma(xi*yi),sigma(xi^2*yi)...sigma(xi^n*yi)
 	float* Y = new float[poly_order + 1];
 
 	// Initialize arrays
-        // Consecutive positions of the array will store N,sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
 	for (i = 0; i < 2 * poly_order + 1; i++) {
 		X[i] = 0;
 		for (j = 0; j < num_points; j++) {
 			X[i] = X[i] + pow(poly_points.at(j).x, i);
 		}
+		// Consecutive positions of the array will store N,sigma(xi),sigma(xi^2),sigma(xi^3)....sigma(xi^2n)
 	}
 
-	// Build the Normal matrix by storing the corresponding coefficients at 
-        // the right positions except the last column of the matrix
 	for (i = 0; i <= poly_order; i++) {
 		for (j = 0; j <= poly_order; j++) {
 			B[i][j] = X[i + j];
+			//Build the Normal matrix by storing the corresponding coefficients at the right positions except the last column of the matrix
 		}
 	}
 
-        // consecutive positions will store sigma(yi),sigma(xi*yi),sigma(xi^2*yi)...sigma(xi^n*yi)
 	for (i = 0; i < poly_order + 1; i++) {
 		Y[i] = 0;
 		for (j = 0; j < num_points; j++) {
 			// Y[i] = Y[i] + pow(x[j], i) * y[j];
 			Y[i] = Y[i] + pow(poly_points.at(j).x, i) * poly_points.at(j).y;
 		}
+		//consecutive positions will store sigma(yi),sigma(xi*yi),sigma(xi^2*yi)...sigma(xi^n*yi)
 	}
 
-	// load y as the last column of B
+	//load the values of Y as the last column of B(Normal Matrix but augmented)
 	for (i = 0; i <= poly_order; i++) {
 		B[i][poly_order + 1] = Y[i];
 	}
 
-	// increase by 1
-        // the Gaussian Elimination part below was for n equations, but
-        // we need poly_order+1 equation for degree of poly_order
+	//n is made n+1 because the Gaussian Elimination part below was for n equations, but here n is the degree of polynomial and for n degree we get n+1 equations
 	poly_order = poly_order + 1;
+	/*
+cout << "The normal (augmented matrix):" << endl;
+for (i = 0; i < N; i++) {
+	for (j=0;j<=N;j++) {
+		cout << B[i][j] << setw(16);
+	}
+	cout << endl;
+}
+*/
 
-        // Gaussian Elimination to solve the set of linear equations (Pivotisation)
+// From now Gaussian Elimination starts (can be ignored) to solve the set of linear equations (Pivotisation)
 	for (i = 0; i < poly_order; i++) {
 		for (k = i + 1; k < poly_order; k++) {
 			if (B[i][i] < B[k][i]) {
@@ -178,7 +178,7 @@ float* polyfit(std::vector<Point> poly_points, int poly_order) {
 		}
 	}
 
-	// Loop to perform the Gauss Elimination
+	// Loop to perform the gauss elimination
 	for (i = 0; i < poly_order - 1; i++) {
 		for (k = i + 1; k < poly_order; k++) {
 			float t = B[k][i] / B[i][i];
@@ -190,29 +190,26 @@ float* polyfit(std::vector<Point> poly_points, int poly_order) {
 	}
 
 	// back-substitution
-	for (i = poly_order - 1; i >= 0; i--) {
-		a[i] = B[i][poly_order];
+	for (i = poly_order - 1; i >= 0; i--) {                        //x is an array whose values correspond to the values of x,y,z..
+		a[i] = B[i][poly_order];                //make the variable to be calculated equal to the rhs of the last equation
 		for (j = 0; j < poly_order; j++) {
-			if (j != i) {
+			if (j != i) {            //then subtract all the lhs values except the coefficient of the variable whose value                                   is being calculated
 				a[i] = a[i] - B[i][j] * a[j];
 			}
 		}
-		a[i] = a[i] / B[i][i];
+		a[i] = a[i] / B[i][i];            //now finally divide the rhs by the coefficient of the variable to be calculated
 	}
 
-        /*
-        // enable to print the final result
 	cout << "a: " << endl;
 	for (i = 0; i < poly_order; i++) {
 		cout << "a[" << i << "] = " << a[i] << endl;
 	}
-        */
 
 	return a;
 }
-
-int exists(const char *name) {
-	struct stat buffer;
+int exists(const char *name)
+{
+	struct stat   buffer;
 	return (stat(name, &buffer) == 0);
 }
 
@@ -290,7 +287,7 @@ float calc_window_weight(cv::Mat image, int i_start, int j_start, int window_wid
 	return sum;
 }
 
-void get_windows2(std::vector<Point> &wins_l, std::vector<Point> &wins_r, cv::Mat image, int window_width, int window_height) {
+void get_windows2(cv::vector<Point> &wins_l, cv::vector<Point> &wins_r, cv::Mat image, int window_width, int window_height) {
 
 	// std::vector<Point> windows;
 
@@ -383,6 +380,73 @@ std::vector<Point> get_windows(cv::Mat image, int window_width, int window_heigh
 
 	return windows;
 }
+/*
+def myp(image, window_width, window_height, margin) :
+	window_centroids = [] # Store the(left, right) window centroid positions per level
+	window = np.ones(window_width) # Create our window template that we will use for convolutions
+
+	# First find the two starting positions for the left and right lane by using np.sum to get the vertical image slice
+	# and then np.convolve the vertical image slice with the window template
+
+	# Sum quarter bottom of image to get slice, could use a different ratio
+	a = int(3 * image.shape[0] / 6)
+	b = int(image.shape[1] / 2)
+
+	ii = image[a:, : b]
+	l_sum = np.sum(image[a:, : b], axis = 0)
+	print("l_sum = " + str(l_sum))
+	print type(l_sum)
+	print l_sum.shape
+	print type(ii)
+	print ii.shape
+	print ii
+
+	convl = np.convolve(window, l_sum)
+	l_center = np.argmax(convl) - window_width / 2
+	c = int(3 * image.shape[0] / 6)
+	d = int(image.shape[1] / 2)
+	r_sum = np.sum(image[c:, d : ], axis = 0)
+	convr = np.convolve(window, r_sum)
+	r_center = np.argmax(convr) - window_width / 2 + int(image.shape[1] / 2)
+
+	# Add what we found for the first layer
+	# window_centroids.append((l_center, r_center))
+	# print(window_centroids)
+	# return window_centroids
+	# Go through each layer looking for max pixel locations
+	for level in range((int)(image.shape[0] / window_height)) :
+		# convolve the window into the vertical slice of the image
+		a = int(image.shape[0] - (level + 1)*window_height)
+		b = int(image.shape[0] - level * window_height)
+		m = int(image.shape[1] / 2)
+		n = m
+		# print(a, b, m, n)
+		image_layer_l = np.sum(image[a:b, : m], axis = 0)
+		image_layer_r = np.sum(image[a:b, n : ], axis = 0)
+		conv_signal_l = np.convolve(window, image_layer_l)
+		conv_signal_r = np.convolve(window, image_layer_r)
+		# print(image_layer)
+		'''
+		# Find the best left centroid by using past left center as a reference
+		# Use window_width / 2 as offset because convolution signal reference is at right side of window, not center of window
+		offset = window_width / 2
+		l_min_index = int(max(l_center + offset - margin, 0))
+		l_max_index = int(min(l_center + offset + margin, image.shape[1]))
+		l_center = np.argmax(conv_signal[l_min_index:l_max_index]) + l_min_index - offset
+		'''
+		l_center = np.argmax(conv_signal_l)
+		'''
+		# Find the best right centroid by using past right center as a reference
+		r_min_index = int(max(r_center + offset - margin, 0))
+		r_max_index = int(min(r_center + offset + margin, image.shape[1]))
+		r_center = np.argmax(conv_signal[r_min_index:r_max_index]) + r_min_index - offset
+		'''
+		r_center = m + np.argmax(conv_signal_r)
+		# Add what we found for that layer
+		window_centroids.append((l_center, r_center))
+
+		return window_centroids
+		*/
 
 cv::Mat get_lane_points_and_windows(cv::Mat warped) {
 
@@ -444,9 +508,6 @@ cv::Mat pipeline(cv::Mat in) {
 	Mat sobx, soby, sobx_abs, soby_abs, sobgrad, sobgrad_low, sobgrad_up, sobgrad_final;
 	Sobel(s_channel, sobx, CV_8U, 1, 0);
 	Sobel(s_channel, soby, CV_8U, 0, 1);
-        imwrite("temp0.jpg",  sobel_s_x);
-        imwrite("temp.jpg",  sobx);
-        imwrite("temp1.jpg", soby);
 	cv::convertScaleAbs(sobx, sobx_abs);
 	cv::convertScaleAbs(soby, soby_abs);
 	sobx_abs /= 256;
@@ -462,7 +523,6 @@ cv::Mat pipeline(cv::Mat in) {
 	Mat tempa;
 	cv::convertScaleAbs(256 * sobgrad, tempa);
 	_PrintMatrix("tempa", tempa);
-	cout << "tempa type " << tempa.type() << endl;
 	/* 
 	Mat temp, sobgrad_temp;
 	sobgrad_temp = 10 * sobgrad;
@@ -478,39 +538,26 @@ cv::Mat pipeline(cv::Mat in) {
 	//_PrintMatrix("sobgrad_up", sobgrad_up);
 	*/
 	sobgrad_final = Mat::zeros(sobgrad.size(), CV_8U);
-	Mat sobgrad_final_bin;
-        sobgrad_final_bin = Mat::zeros(sobgrad_final.size(), CV_8U);
-	Mat combined_final = Mat::zeros(sobgrad.size(), CV_8U);
-	cout << "sobgrad_final type" << sobgrad_final.type() << endl;
-	cout << "sobgrad_final size" << sobgrad_final.size() << endl;
-	for (int i = 0; i < sobgrad_final.rows; i++) {
-		for (int j = 0; j < sobgrad_final.cols; j++) {
+	for (int i = 0; i < sobgrad.rows; i++) {
+		for (int j = 0; j < sobgrad.rows; j++) {
 			//double val = tempa.at<double>(i, j);
 			//if (val > 0.7 && val < 1.3) {
-			unsigned char val = tempa.at<unsigned char>(i, j);
+			unsigned short val = tempa.at<unsigned short>(i, j);
 			//cout << val << endl;
 			if (val > 0 && val < 256) {
-				sobgrad_final.at<unsigned int>(i, j) = (unsigned char) 255;
+				sobgrad_final.at<unsigned short>(i, j) = 255;
 			}
 		}
 	}
 
-	_PrintMatrix("sobgrad_final", sobgrad_final);
-	cout << "sobgrad_final done " << sobgrad_final.size() << endl;
-	// Mat combined_final, sobgrad_final_bin;
-        cout << "tu sam" << endl;
-        cout << "tu sam" << endl;
-	cout << "sobgrad_final_bin type" << sobgrad_final_bin.type() << endl;
-	cout << "sobgrad_final_bin size" << sobgrad_final_bin.size() << endl;
-        cout << "tu sam" << endl;
+	Mat combined_final, sobgrad_final_bin;
 	cv::threshold(sobgrad_final, sobgrad_final_bin, 180, 1, THRESH_BINARY);
-        cout << "tu sam" << endl;
 	
-	cout << "sobgrad_final_bin done " << tempa.type() << endl;
 
 	cv::bitwise_and(combined, sobgrad_final_bin, combined_final);
 	combined_final *= 256;
 	/**/
+	_PrintMatrix("sobgrad_final", sobgrad_final);
 	_PrintMatrix("combined", combined);
 	_PrintMatrix("sobgrad_final_bin", sobgrad_final_bin);
 	
@@ -540,24 +587,22 @@ cv::Mat pipeline(cv::Mat in) {
 	ret = sobel_s_x;
 	sobel_s_x.convertTo(ret, CV_16U);
 	//imshow("ret",  ret);
-	cout << "Returning from pipeline" << endl;
 	return sobgrad_final;
 }
 
 int main() {
 
-	cout << exists("project_video.mp4") << endl;
-	cout << exists("test2.jpg") << endl;
+	cout << exists("C:\\Users\\elaabrm\\Downloads\\projectVideo.mp4") << endl;
+	cout << exists("C:\\Users\\elaabrm\\Downloads\\test2.jpg") << endl;
 
 	// Create a VideoCapture object and open the input file
 	// If the input is the web camera, pass 0 instead of the video file name
-
-	VideoCapture cap("project_video.mp4");
+	VideoCapture cap("C:\\Users\\elaabrm\\Downloads\\project_video.mp4");
 
 	// Check if camera opened successfully
 	if (!cap.isOpened()) {
 		cout << "Error opening video stream or file" << endl;
-		// return -1;
+		return -1;
 	}
 
 	int im_w = 1280;
@@ -595,11 +640,27 @@ int main() {
 	}
 
 	Mat mtx = (Mat_<double>(3, 3) << 1.15529427e+03, 0.00000000e+00, 6.66607659e+02,
-            0.00000000e+00, 1.15207332e+03, 3.90091939e+02,
-            0.00000000e+00, 0.00000000e+00, 1.00000000e+00);
+		0.00000000e+00, 1.15207332e+03, 3.90091939e+02,
+		0.00000000e+00, 0.00000000e+00, 1.00000000e+00);
+
+	float data_mtx[3][3] = { {1.15529427e+03, 0.00000000e+00, 6.66607659e+02}, 
+	{0.00000000e+00, 1.15207332e+03, 3.90091939e+02},
+	{0.00000000e+00, 0.00000000e+00, 1.00000000e+00}};
+
+	cout << "data_mtx = " << endl;
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			cout << data_mtx[i][j] << " ";
+		}
+		cout << endl;
+	}
 
 	Mat dist = (Mat_<double>(1, 5) << -2.39859361e-01, -2.71783516e-02, -6.46830818e-04, 6.94852396e-06,
 		-1.99626622e-02);
+
+	float dist_data[1][5] = { {-2.39859361e-01, -2.71783516e-02, -6.46830818e-04, 6.94852396e-06,
+  -1.99626622e-02} };
 
 	Mat rvecs = (Mat_<double>(18, 3) << 0.035787551948181034, -0.028348151896162854, -0.007378974918370405,
 		0.513996679859966, -0.21794547365011274, 0.028517926443001263,
@@ -619,6 +680,26 @@ int main() {
 		0.021805468832337162, 0.6379019593066746, 0.0098189167240878,
 		0.03164108432199019, -0.7026552441256677, -0.019574069302427857,
 		-0.19120416053128075, -0.7577570290248707, 0.12034016378482212);
+	float rvecs_data[18][3][1] = {
+{{0.035787551948181034}, {-0.028348151896162854}, {-0.007378974918370405}},
+{{0.513996679859966}, {-0.21794547365011274}, {0.028517926443001263}},
+{{0.03898754413948115}, {0.4608697588726643}, {0.006653594168759568}},
+{{0.03740836168240398}, {0.646416206001606}, {0.010071740668489808}},
+{{-0.32859639766080706}, {0.6607602336256122}, {-0.41385204129211306}},
+{{0.05889852535854729}, {-0.5167433562843025}, {-0.005548615452524798}},
+{{-0.019741198891410898}, {-0.48588513727041116}, {0.018734536696541737}},
+{{0.0444074376941085}, {-0.46153196532093976}, {-0.05765278177490741}},
+{{0.22064650015513176}, {-0.06346752806692323}, {0.0118612209721304}},
+{{0.18341644801312093}, {-0.0537829650974517}, {0.0010465079908685193}},
+{{0.08703901789007709}, {0.38387224900074973}, {0.0552650478146734}},
+{{0.6383093016973135}, {-0.046835568156110584}, {0.016539812257782744}},
+{{-0.018329207628249158}, {0.38558628631223474}, {-0.0026292061697080096}},
+{{-0.44759809723966415}, {-0.06353406445291397}, {-0.018895923146439928}},
+{{0.01870198804396533}, {0.02376942384937375}, {-0.005544627082789631}},
+{{0.021805468832337162}, {0.6379019593066746}, {0.0098189167240878}},
+{{0.03164108432199019}, {-0.7026552441256677}, {-0.019574069302427857}},
+{{-0.19120416053128075}, {-0.7577570290248707}, {0.12034016378482212}}
+	};
 
 	Mat tvecs = (Mat_<double>(18, 3) << -4.2067286378099, -2.328629936019235, 8.47232083057268,
 		-2.067685092163532, -0.7879872669861475, 19.567611503807015,
@@ -638,6 +719,26 @@ int main() {
 		-9.57606294909838, -3.3816867864259788, 32.140515619927314,
 		0.7572101403479617, -2.975737620299634, 19.575910887878646,
 		-0.8205981409160775, -4.64690401680416, 21.711578309633243);
+	float tvecs_data[18][3][1] = {
+{{-4.2067286378099}, {-2.328629936019235}, {8.47232083057268}},
+{{-2.067685092163532}, {-0.7879872669861475}, {19.567611503807015}},
+{{-16.946055556743882}, {-3.5938566340336395}, {32.05990964717467}},
+{{-0.17025414224410967}, {-3.53965659758442}, {21.868887300431254}},
+{{-5.9974276626559}, {-1.6459428894601775}, {26.67484512204059}},
+{{5.424565938038441}, {-4.517672329603618}, {20.771839229031322}},
+{{4.53590711878514}, {-1.5351702738461908}, {19.98339770287975}},
+{{4.933989332115921}, {-5.1129319654725265}, {19.766656192661184}},
+{{-3.9387318830028994}, {-1.373807445554384}, {17.020008257152067}},
+{{-3.5939817975381216}, {-4.1938659618583625}, {17.786212788038686}},
+{{-12.994057137300373}, {-5.67049110377465}, {23.75383163336914}},
+{{-3.81251301900247}, {-1.625266177574172}, {7.954322174278309}},
+{{-13.383053166766626}, {-0.5651944353444776}, {24.54782963443558}},
+{{-4.37530895449841}, {-3.08670074363757}, {10.714937034022677}},
+{{-4.8980740171925765}, {-3.953987173470921}, {30.458138456276636}},
+{{-9.57606294909838}, {-3.3816867864259788}, {32.140515619927314}},
+{{0.7572101403479617}, {-2.975737620299634}, {19.575910887878646}},
+{{-0.8205981409160775}, {-4.64690401680416}, {21.711578309633243}}
+	};
 
 	while (1) {
 
@@ -647,9 +748,9 @@ int main() {
 		bool brk = false;
 
 
-		frame = cv::imread("test2.jpg");
+		frame = cv::imread("C:\\Users\\elaabrm\\Downloads\\test2.jpg");
 		brk = true;
-		imshow("Frame", frame);
+
 		// If the frame is empty, break immediately
 		if (frame.empty())
 			break;
@@ -665,8 +766,7 @@ int main() {
 		*/
 
 		cv::Mat pipeline_out = pipeline(frame);
-                cout << "pipeline done" << endl;
-		// imshow("Frame", pipeline_out);
+		imshow("Frame", pipeline_out);
 		// Display the resulting frame
 		//imshow("Frame", pipeline_out);
 
@@ -676,7 +776,7 @@ int main() {
 		cv::undistort(pipeline_out, undist, mtx, dist);
 		Mat undist_warped;
 		cv::warpPerspective(undist, undist_warped, M, undist.size(), INTER_LINEAR);
-		// imshow("undist warped",undist_warped);
+		imshow("undist warped",undist_warped);
 		Mat undist_warped_bgr;
 		cv::cvtColor(undist_warped, undist_warped_bgr, CV_GRAY2BGR);
 		
@@ -686,15 +786,17 @@ int main() {
 
 		Mat white_img(undist_warped_bgr.size(), CV_8UC3, Scalar(255, 255, 255));
 
+		
+
 		// print_mat_rows(undist_warped, 2, 2);
 		// _PrintMatrix("undist_warped", undist_warped);
 
-		//std::vector<Point> wins; 
+		//cv::vector<Point> wins; 
 		int win_size = 32;
-		std::vector<Point> wins_l, wins_r; 
-		// std::vector<Point> wins = get_windows2(wins_l, wins_r, undist_warped, win_size, win_size);
+		cv::vector<Point> wins_l, wins_r; 
+		// cv::vector<Point> wins = get_windows2(wins_l, wins_r, undist_warped, win_size, win_size);
 		get_windows2(wins_l, wins_r, undist_warped, win_size, win_size);
-		std::vector<Point> poly_points_l, poly_points_r;
+		cv::vector<Point> poly_points_l, poly_points_r;
 
 		for (auto window = wins_l.begin(); window != wins_l.end(); window++) {
 			Point p = *window;
@@ -728,7 +830,7 @@ int main() {
 			}
 			*/
 		}
-		// imshow("", undist_warped_bgr);
+		imshow("", undist_warped_bgr);
 		cout << "Points left: " << poly_points_l.size() << endl;
 		cout << "Points right: " << poly_points_r.size() << endl;
 		float* coeff_l = polyfit(poly_points_l, 2);
@@ -790,9 +892,9 @@ int main() {
 
 		Mat aaa;
 		pipeline_out.convertTo(aaa, CV_16U);
-		imwrite("test2out.jpg", aaa);
+		imwrite("C:\\Users\\elaabrm\\Downloads\\test2out.jpg", aaa);
 		
-		// imshow("final", orig_combined);
+		imshow("final", orig_combined);
 		//cv::Mat out = get_lane_points_and_windows(undist_warped);
 		//if (brk) break;return 0;
 		// Press  ESC on keyboard to exit
@@ -810,3 +912,4 @@ int main() {
 
 	return 0;
 }
+
